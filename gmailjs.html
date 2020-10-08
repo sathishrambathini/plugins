@@ -5,9 +5,10 @@
     <title>Drive API Quickstart</title>
     <meta charset="utf-8" />
 </head>
- 
+
 <body>
     <p>Drive API Quickstart</p>
+
 
     <!--Add buttons to initiate auth sequence and sign out-->
     <button id="authorize_button" style="display: none;">Authorize</button>
@@ -33,7 +34,18 @@
         /**
          *  On load, called to load the auth2 library and API client library.
          */
+
+
+        window.onmessage = function (e) {
+            document.getElementById("authorize_button").click();
+        };
+
+        function onloadIfrmae(status) {
+            window.top.postMessage({ status: status }, "*");
+        }
+
         function handleClientLoad() {
+
             gapi.load('client:auth2', initClient);
         }
 
@@ -80,6 +92,11 @@
          */
         function handleAuthClick(event) {
             gapi.auth2.getAuthInstance().signIn();
+            setInterval(() => {
+                if(gapi.auth2.getAuthInstance().isSignedIn.get()){
+                    onloadIfrmae("success")
+                }
+            }, 1000);
         }
 
         /**
