@@ -2,17 +2,13 @@
 <html>
 
 <head>
-    <title>Drive API Quickstart</title>
     <meta charset="utf-8" />
 </head>
 
 <body>
-    <p>Drive API Quickstart</p>
-
-
     <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize_button" style="display: none;">Authorize</button>
-    <button id="signout_button" style="display: none;">Sign Out</button>
+    <p id="authorize_button" style="display: none;">a</p>
+    <p id="signout_button" style="display: none;">s</p>
 
     <pre id="content" style="white-space: pre-wrap;"></pre>
 
@@ -22,30 +18,94 @@
         var API_KEY = 'AIzaSyDWN2G4LO1QlAmjyInlkbHaxSW9lpH0QMc';
 
         // Array of API discovery doc URLs for APIs used by the quickstart
-        var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+        var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
 
         // Authorization scopes required by the API; multiple scopes can be
         // included, separated by spaces.
-        var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
-
+        var SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
+        
         var authorizeButton = document.getElementById('authorize_button');
         var signoutButton = document.getElementById('signout_button');
+
+        window.addEventListener('message', (event) => {
+            if (event.data == "signin") {
+                gapi.auth2.getAuthInstance().signIn();
+                window.signIntrval = setInterval(() => {
+                    if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                        clearInterval(window.signIntrval);
+                        onloadIfrmae("signin");
+                        //getEmails();
+                    }
+                }, 1000);
+            }
+            else if(event.data == "signout"){
+                gapi.auth2.getAuthInstance().signOut();
+            }
+            else if(event.data.type == "getEmails"){
+                getEmails(event.data.email);
+            }
+            //document.getElementById("authorize_button").click();
+        });
+        async function getEmails(s_email) {
+            var gmailResp = [];
+            var gmailResp1 = [];
+            // console.log(type);
+            var request = gapi.client.gmail.users.messages.list({
+                'userId': 'me',
+                labelIds: "INBOX",
+                maxResults: 10,
+                q : s_email
+            })
+            await request.then(function (response) {
+                gmailResp = response;
+            });
+            //if(gmailResp.messages && gmailResp.messages.length > 0){
+                for (var i = 0; i < gmailResp.result.messages.length; i++) {
+                var request2 = gapi.client.gmail.users.messages.get({
+                    userId: 'me',
+                    id: gmailResp.result.messages[i].id
+                });
+                await request2.then((resp) => {
+                    var mailResp = {}
+                    resp.result.payload.headers.forEach((item) => {
+                        switch (item.name) {
+                            case "From": mailResp["from"] = item.value;
+                                break;
+                            case "To": mailResp["to"] = item.value;
+                                break;
+                            case "Subject": mailResp["subject"] = item.value;
+                                break;
+                            case "Date": mailResp["date"] = item.value;
+                                break;
+                            case "Content-Type": mailResp["contentType"] = item.value;
+                        }
+                    })
+                    if (resp.result.payload.body.size > 0) {
+                        var msg = resp.result.payload.body.data;
+                        mailResp["message"] = atob(msg.replace(/-/g, '+').replace(/_/g, '/'));
+                    }
+                    else {
+                        mailResp["message"] = resp.result.snippet;
+                    }
+                    mailResp["mime_type"] = resp.result.payload.mimeType;
+                    mailResp["snippet"] = resp.result.snippet;
+                    gmailResp1.push(mailResp);
+                })
+            }
+            onloadIfrmae({"app" : "gmail","gmailResp" : gmailResp1})
+            }
+            //console.log("gmailResp1",gmailResp1);
+            
+        //}
+        function onloadIfrmae(status) {
+            window.top.postMessage(status, "*");
+        }
+
 
         /**
          *  On load, called to load the auth2 library and API client library.
          */
-
-
-        window.onmessage = function (e) {
-            document.getElementById("authorize_button").click();
-        };
-
-        function onloadIfrmae(status) {
-            window.top.postMessage({ status: status }, "*");
-        }
-
         function handleClientLoad() {
-
             gapi.load('client:auth2', initClient);
         }
 
@@ -53,6 +113,7 @@
          *  Initializes the API client library and sets up sign-in state
          *  listeners.
          */
+
         function initClient() {
             gapi.client.init({
                 apiKey: API_KEY,
@@ -80,7 +141,6 @@
             if (isSignedIn) {
                 authorizeButton.style.display = 'none';
                 signoutButton.style.display = 'block';
-                listFiles();
             } else {
                 authorizeButton.style.display = 'block';
                 signoutButton.style.display = 'none';
@@ -92,11 +152,6 @@
          */
         function handleAuthClick(event) {
             gapi.auth2.getAuthInstance().signIn();
-            setInterval(() => {
-                if(gapi.auth2.getAuthInstance().isSignedIn.get()){
-                    onloadIfrmae("success")
-                }
-            }, 1000);
         }
 
         /**
@@ -107,42 +162,15 @@
         }
 
         /**
-         * Append a pre element to the body containing the given message
-         * as its text node. Used to display the results of the API call.
-         *
-         * @param {string} message Text to be placed in pre element.
+         * Print all Labels in the authorized user's inbox. If no labels
+         * are found an appropriate message is printed.
          */
-        function appendPre(message) {
-            var pre = document.getElementById('content');
-            var textContent = document.createTextNode(message + '\n');
-            pre.appendChild(textContent);
-        }
-
-        /**
-         * Print files.
-         */
-        function listFiles() {
-            gapi.client.drive.files.list({
-                'pageSize': 10,
-                'fields': "nextPageToken, files(id, name)"
-            }).then(function (response) {
-                appendPre('Files:');
-                var files = response.result.files;
-                if (files && files.length > 0) {
-                    for (var i = 0; i < files.length; i++) {
-                        var file = files[i];
-                        appendPre(file.name + ' (' + file.id + ')');
-                    }
-                } else {
-                    appendPre('No files found.');
-                }
-            });
-        }
-
     </script>
 
-    <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
+    <!-- <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
         onreadystatechange="if (this.readyState === 'complete') this.onload()">
+        </script> -->
+        <script async defer src="https://apis.google.com/js/api.js" onload="handleClientLoad()">
         </script>
 </body>
 
