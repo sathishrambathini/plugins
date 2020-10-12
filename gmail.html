@@ -2,16 +2,13 @@
 <html>
 
 <head>
-    <title>Gmail API Quickstart</title>
     <meta charset="utf-8" />
 </head>
 
 <body>
-    <p>Gmail API Quickstart</p>
-
     <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize_button" style="display: none;">Authorize</button>
-    <button id="signout_button" style="display: none;">Sign Out</button>
+    <p id="authorize_button" style="display: none;"></p>
+    <p id="signout_button" style="display: none;"></p>
 
     <pre id="content" style="white-space: pre-wrap;"></pre>
 
@@ -26,25 +23,36 @@
         // Authorization scopes required by the API; multiple scopes can be
         // included, separated by spaces.
         var SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
-        
+
         var authorizeButton = document.getElementById('authorize_button');
         var signoutButton = document.getElementById('signout_button');
 
         window.addEventListener('message', (event) => {
+
             if (event.data == "signin") {
-                gapi.auth2.getAuthInstance().signIn();
-                window.signIntrval = setInterval(() => {
-                    if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
-                        clearInterval(window.signIntrval);
-                        onloadIfrmae("signin");
-                        //getEmails();
-                    }
-                }, 1000);
+                gapi.auth2.getAuthInstance().signIn().then(function(){
+                    window.signIntrval = setInterval(() => {
+                        if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                            clearInterval(window.signIntrval);
+                            onloadIfrmae("signin");
+                            //getEmails();
+                        }
+                    }, 1000);
+                }, function(error){ if (error) alert('please allow popup for this app')})
             }
-            else if(event.data == "signout"){
+
+            
+
+            
+            
+                // gapi.auth2.getAuthInstance().signIn().then(() => {
+                    
+                // });
+            
+            else if (event.data == "signout") {
                 gapi.auth2.getAuthInstance().signOut();
             }
-            else if(event.data == "getEmails"){
+            else if (event.data == "getEmails") {
                 getEmails();
             }
             //document.getElementById("authorize_button").click();
@@ -93,8 +101,8 @@
                     gmailResp1.push(mailResp);
                 })
             }
-            console.log("gmailResp1",gmailResp1);
-            onloadIfrmae({"app" : "gmail","gmailResp" : gmailResp1})
+            console.log("gmailResp1", gmailResp1);
+            onloadIfrmae({ "app": "gmail", "gmailResp": gmailResp1 })
         }
         function onloadIfrmae(status) {
             window.top.postMessage(status, "*");
@@ -169,6 +177,8 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
         onreadystatechange="if (this.readyState === 'complete') this.onload()">
         </script>
+    <!-- <script async defer src="https://apis.google.com/js/api.js" onload="handleClientLoad()">
+        </script> -->
 </body>
 
 </html>
