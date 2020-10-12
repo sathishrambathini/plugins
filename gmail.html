@@ -2,13 +2,16 @@
 <html>
 
 <head>
+    <title>Gmail API Quickstart</title>
     <meta charset="utf-8" />
 </head>
 
 <body>
+    <p>Gmail API Quickstart</p>
+
     <!--Add buttons to initiate auth sequence and sign out-->
-    <p id="authorize_button" style="display: none;"></p>
-    <p id="signout_button" style="display: none;"></p>
+    <button id="authorize_button" style="display: none;">Authorize</button>
+    <button id="signout_button" style="display: none;">Sign Out</button>
 
     <pre id="content" style="white-space: pre-wrap;"></pre>
 
@@ -29,15 +32,14 @@
 
         window.addEventListener('message', (event) => {
             if (event.data == "signin") {
-                gapi.auth2.getAuthInstance().signIn().then(()=>{
-                    window.signIntrval = setInterval(() => {
+                gapi.auth2.getAuthInstance().signIn();
+                window.signIntrval = setInterval(() => {
                     if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
                         clearInterval(window.signIntrval);
                         onloadIfrmae("signin");
                         //getEmails();
                     }
                 }, 1000);
-                });
             }
             else if(event.data == "signout"){
                 gapi.auth2.getAuthInstance().signOut();
@@ -167,8 +169,6 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
         onreadystatechange="if (this.readyState === 'complete') this.onload()">
         </script>
-        <!-- <script async defer src="https://apis.google.com/js/api.js" onload="handleClientLoad()">
-        </script> -->
 </body>
 
 </html>
