@@ -30,9 +30,10 @@
         window.addEventListener('message', (event) => {
             if (event.data == "signin") {
                 gapi.auth2.getAuthInstance().signIn();
-                window.signIntrval = setInterval(() => {
+                var signIntrval = setInterval(() => {
                     if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
-                        clearInterval(window.signIntrval);
+                        intervalClear(signIntrval);
+                        //clearInterval(window.signIntrval);
                         onloadIfrmae("signin");
                         //getEmails();
                     }
@@ -46,6 +47,9 @@
             }
             //document.getElementById("authorize_button").click();
         });
+        function intervalClear(obj){
+            window.clearInterval(obj);
+        }
         async function getEmails(user_email) {
             var gmailResp = [];
             var gmailResp1 = [];
