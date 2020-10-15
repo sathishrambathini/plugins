@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+</head>
+
+<body>
+    <!--Add buttons to initiate auth sequence and sign out-->
+    <p id="authorize_button" style="display: none;"></p>
+    <p id="signout_button" style="display: none;"></p>
+
+    <pre id="content" style="white-space: pre-wrap;"></pre>
+
+    <script type="text/javascript">
+        // Client ID and API key from the Developer Console
+        var CLIENT_ID = '38128808070-5h36pk8caq9o6t7ut1rukk98hessr3da.apps.googleusercontent.com';
+        var API_KEY = 'AIzaSyDWN2G4LO1QlAmjyInlkbHaxSW9lpH0QMc';
+
+        // Array of API discovery doc URLs for APIs used by the quickstart
+        var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
+
+        // Authorization scopes required by the API; multiple scopes can be
+        // included, separated by spaces.
+        var SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://mail.google.com/ https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.addons.current.action.compose';
+        
+        var authorizeButton = document.getElementById('authorize_button');
+        var signoutButton = document.getElementById('signout_button');
+
+        window.addEventListener('message', (event) => {
+            //console.log(event);
+            if (event.data == "signin") {
+                gapi.auth2.getAuthInstance().signIn().then(()=>{
+                    //alert(gapi.auth2.getAuthInstance().isSignedIn.get());
+                    onloadIfrmae("signin");
+                });
+            }
+            else if(event.data == "signout"){
+                gapi.auth2.getAuthInstance().signOut();
+            }
+            else if(event.data.type == "getEmails"){
+                getEmails(event.data.email);
+            }
+            else if(event.data.type == "sendEmail"){
+                sendEmail(event.data.payload);
+            }
+            //document.getElementById("authorize_button").click();
+        });
+        async function getEmails(user_email) {
+            var gmailResp = [];
+            var gmailResp1 = [];
+            // console.log(type);
+            var request = gapi.client.gmail.users.messages.list({
+                'userId': 'me',
+                labelIds: "INBOX",
+                maxResults: 10,
+                q : user_email
+            })
+            await request.then(function (response) {
+                gmailResp = response;
+            });
+            for (var i = 0; i < gmailResp.result.messages.length; i++) {
+                var request2 = gapi.client.gmail.users.messages.get({
+                    userId: 'me',
+                    id: gmailResp.result.messages[i].id
+                });
+                await request2.then((resp) => {
+                    var mailResp = {'thread_id': resp.result.threadId }
+                    resp.result.payload.headers.forEach((item) => {
+                        switch (item.name) {
+                            case "From": mailResp["from"] = item.value;
+                                break;
+                            case "To": mailResp["to"] = item.value;
+                                break;
+                            case "Subject": mailResp["subject"] = item.value;
+                                break;
+                            case "Date": mailResp["date"] = item.value;
+                                break;
+                            case "Message-ID": mailResp["reply_to_id"] = item.value;
+                                break;
+                            case "References": mailResp["references"] = item.value;
+                                break;
+                            case "Content-Type": mailResp["contentType"] = item.value;
+                        }
+                    })
+                    if (resp.result.payload.body.size > 0) {
+                        var msg = resp.result.payload.body.data;
+                        mailResp["message"] = atob(msg.replace(/-/g, '+').replace(/_/g, '/'));
+                    }
+                    else {
+                        mailResp["message"] = resp.result.snippet;
+                    }
+                    mailResp["mime_type"] = resp.result.payload.mimeType;
+                    mailResp["snippet"] = resp.result.snippet;
+                    gmailResp1.push(mailResp);
+                })
+            }
+            console.log("gmailResp1",gmailResp1);
+            onloadIfrmae({"app" : "gmail","gmailResp" : gmailResp1})
+        }
+        function onloadIfrmae(status) {
+            window.top.postMessage(status, "*");
+        }
+
+        /**
+         *  On load, called to load the auth2 library and API client library.
+         */
+        function handleClientLoad() {
+            gapi.load('client:auth2', initClient);
+        }
+        
+        function sendEmail(data){
+                var email = '';
+
+        for(var header in data.fields){
+          email += header += ": "+data.fields[header]+"\r\n";
+        }
+
+        email += "\r\n" + data.message;
+
+        var sendRequest = gapi.client.gmail.users.messages.send({
+          'userId': 'me',
+          'resource': {
+            'raw': window.btoa(email).replace(/\+/g, '-').replace(/\//g, '_')
+          }
+        });
+
+        return sendRequest.execute(onloadIfrmae('Mail Sent Successfully'));
+        }
+
+        /**
+         *  Initializes the API client library and sets up sign-in state
+         *  listeners.
+         */
+
+        function initClient() {
+            gapi.client.init({
+                apiKey: API_KEY,
+                clientId: CLIENT_ID,
+                discoveryDocs: DISCOVERY_DOCS,
+                scope: SCOPES
+            }).then(function () {
+                // Listen for sign-in state changes.
+                gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+                // Handle the initial sign-in state.
+                updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+                authorizeButton.onclick = handleAuthClick;
+                signoutButton.onclick = handleSignoutClick;
+            }, function (error) {
+                appendPre(JSON.stringify(error, null, 2));
+            });
+        }
+
+        /**
+         *  Called when the signed in status changes, to update the UI
+         *  appropriately. After a sign-in, the API is called.
+         */
+        function updateSigninStatus(isSignedIn) {
+            if (isSignedIn) {
+                authorizeButton.style.display = 'none';
+                signoutButton.style.display = 'block';
+            } else {
+                authorizeButton.style.display = 'block';
+                signoutButton.style.display = 'none';
+            }
+        }
+
+        /**
+         *  Sign in the user upon button click.
+         */
+        function handleAuthClick(event) {
+            gapi.auth2.getAuthInstance().signIn().then(function(){}, function(error){ if (error) alert('please allow popup for this app')});
+        }
+
+        /**
+         *  Sign out the user upon button click.
+         */
+        function handleSignoutClick(event) {
+            gapi.auth2.getAuthInstance().signOut();
+        }
+
+        /**
+         * Print all Labels in the authorized user's inbox. If no labels
+         * are found an appropriate message is printed.
+         */
+    </script>
+
+    <!-- <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
+        onreadystatechange="if (this.readyState === 'complete') this.onload()">
+        </script> -->
+        <script async defer src="https://apis.google.com/js/api.js" onload="handleClientLoad()">
+        </script>
+</body>
+
+</html>
